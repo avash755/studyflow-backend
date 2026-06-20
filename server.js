@@ -8,7 +8,7 @@ const goalRoutes = require('./routes/goals');
 const calendarRoutes = require('./routes/calendar');
 const scheduleRoutes = require('./routes/schedule');
 const statsRoutes = require('./routes/stats');
-const activityRoutes = require('./routes/activity');
+const activityRoutes = require('./routes/activity'); // ✅ Only once
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,15 +24,12 @@ app.use('/api/goals', goalRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/stats', statsRoutes);
-app.use('/api/activity', activityRoutes.router);
+app.use('/api/activity', activityRoutes.router); // ✅ Only once
 
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'StudyFlow backend is alive' });
 });
-
-const activityRoutes = require('./routes/activity');
-app.use('/api/activity', activityRoutes.router);
 
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
