@@ -1,3 +1,4 @@
+const { logActivity } = require('./activity');
 const express = require('express');
 const db = require('../db');
 const router = express.Router();
@@ -44,6 +45,9 @@ router.post('/', async (req, res) => {
             'INSERT INTO assignments (user_id, title, subject, due_date, completed) VALUES ($1, $2, $3, $4, 0) RETURNING id',
             [userId, title, subject, dueDate || null]
         );
+
+        await logActivity(userId, 'Added assignment', `Assignment: ${title} (${subject})`);
+
         res.status(201).json({
             id: result.rows[0].id,
             title,
@@ -90,6 +94,14 @@ router.put('/:id', async (req, res) => {
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        // Check if the assignment is being marked as completed
+        if (completed === 1) {
+            const titleResult = await db.query('SELECT title FROM assignments WHERE id = $1 AND user_id = $2', [id, userId]);
+            if (titleResult.rows.length) {
+                await logActivity(userId, 'Completed assignment', `Assignment: ${titleResult.rows[0].title}`);
+            }
         }
 
         params.push(id, userId);

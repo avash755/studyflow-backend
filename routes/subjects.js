@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../db');
+const { logActivity } = require('./activity'); // <-- Import the log function
 const router = express.Router();
 
 // GET all subjects for a user
@@ -21,7 +22,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// POST a new subject
+// POST a new subject (with activity logging)
 router.post('/', async (req, res) => {
     const { userId, name } = req.body;
     if (!userId || !name) {
@@ -33,6 +34,10 @@ router.post('/', async (req, res) => {
             'INSERT INTO subjects (user_id, name) VALUES ($1, $2) RETURNING id',
             [userId, name]
         );
+        
+        // ========== LOG ACTIVITY ==========
+        await logActivity(userId, 'Added subject', `Subject: ${name}`);
+        
         res.status(201).json({ 
             id: result.rows[0].id, 
             name, 
@@ -50,10 +55,18 @@ router.delete('/:id', async (req, res) => {
     const { userId } = req.body;
 
     try {
+        // Get the subject name before deleting (for the log)
+        const subjectResult = await db.query('SELECT name FROM subjects WHERE id = $1 AND user_id = $2', [id, userId]);
+        const subjectName = subjectResult.rows[0]?.name || 'Unknown';
+        
         await db.query(
             'DELETE FROM subjects WHERE id = $1 AND user_id = $2',
             [id, userId]
         );
+        
+        // ========== LOG ACTIVITY ==========
+        await logActivity(userId, 'Deleted subject', `Subject: ${subjectName}`);
+        
         res.json({ message: 'Subject deleted' });
     } catch (err) {
         console.error('Subjects DELETE error:', err);

@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const router = express.Router();
+const { logActivity } = require('./activity');
 
 // GET all goals for a user
 router.get('/', async (req, res) => {
@@ -33,6 +34,9 @@ router.post('/', async (req, res) => {
             'INSERT INTO goals (user_id, text, done) VALUES ($1, $2, 0) RETURNING id',
             [userId, text]
         );
+
+        await logActivity(userId, 'Added goal', `Goal: ${text}`);
+
         res.status(201).json({
             id: result.rows[0].id,
             text,
@@ -58,6 +62,13 @@ router.put('/:id', async (req, res) => {
             'UPDATE goals SET done = $1 WHERE id = $2 AND user_id = $3',
             [done ? 1 : 0, id, userId]
         );
+        // Check if the goal is being marked as done
+        if (done === 1) {
+            const textResult = await db.query('SELECT text FROM goals WHERE id = $1 AND user_id = $2', [id, userId]);
+            if (textResult.rows.length) {
+                await logActivity(userId, 'Completed goal', `Goal: ${textResult.rows[0].text}`);
+            }
+        }
         res.json({ message: 'Goal updated' });
     } catch (err) {
         console.error('Goals PUT error:', err);

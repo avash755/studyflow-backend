@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const crypto = require('crypto');
+const { logActivity } = require('./activity');
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.post('/register', async (req, res) => {
     if (existing.rows.length > 0) {
       return res.status(400).json({ error: 'Email already registered' });
     }
-
+    
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await db.query(
       'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
@@ -41,6 +42,7 @@ router.post('/register', async (req, res) => {
       token,
       user: { id: userId, name, email }
     });
+    await logActivity(userId, 'Signed up', `User: ${email}`);
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -79,6 +81,7 @@ router.post('/login', async (req, res) => {
       token,
       user: { id: user.id, name: user.name, email: user.email }
     });
+    await logActivity(user.id, 'Logged in', `User: ${email}`);
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Internal server error' });

@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const router = express.Router();
+const { logActivity } = require('./activity');
 
 // GET all events for a user
 router.get('/', async (req, res) => {
@@ -34,6 +35,7 @@ router.post('/', async (req, res) => {
             'INSERT INTO calendar_events (user_id, title, date_key, time, color) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [userId, title, dateKey, time || null, color || '#4f46e5']
         );
+        await logActivity(userId, 'Added event', `Event: ${title}`);
         res.status(201).json({
             id: result.rows[0].id,
             title,
