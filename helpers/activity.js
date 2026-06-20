@@ -1,4 +1,3 @@
-// backend/helpers/activity.js
 const db = require('../db');
 
 async function logActivity(userId, type, message, metadata = {}) {
@@ -11,7 +10,6 @@ async function logActivity(userId, type, message, metadata = {}) {
         );
     } catch (err) {
         console.error('Failed to log activity:', err);
-        // Silently fail – don't break the main flow
     }
 }
 
