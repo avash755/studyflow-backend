@@ -1,6 +1,6 @@
-const { logActivity } = require('./activity');
 const express = require('express');
 const db = require('../db');
+const { logActivity } = require('./activity');
 const router = express.Router();
 
 // GET all assignments for a user
@@ -125,7 +125,14 @@ router.delete('/:id', async (req, res) => {
     }
 
     try {
+        const titleResult = await db.query('SELECT title FROM assignments WHERE id = $1 AND user_id = $2', [id, userId]);
+        
         await db.query('DELETE FROM assignments WHERE id = $1 AND user_id = $2', [id, userId]);
+        
+        if (titleResult.rows.length) {
+            await logActivity(userId, 'Deleted assignment', `Assignment: ${titleResult.rows[0].title}`);
+        }
+        
         res.json({ message: 'Assignment deleted' });
     } catch (err) {
         console.error('Assignments DELETE error:', err);

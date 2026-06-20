@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../db');
 const router = express.Router();
 
-// GET recent activity for a user (last 10 entries)
+// GET recent activity for a user (last 10)
 router.get('/', async (req, res) => {
     const userId = req.query.userId;
     if (!userId) {
@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// (Internal) Helper to log an activity – we'll call this from other routes
+// Helper function for logging (used by other routes)
 async function logActivity(userId, action, details = null) {
     try {
         await db.query(

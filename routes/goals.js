@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
-const router = express.Router();
 const { logActivity } = require('./activity');
+const router = express.Router();
 
 // GET all goals for a user
 router.get('/', async (req, res) => {
@@ -58,10 +58,6 @@ router.put('/:id', async (req, res) => {
     }
 
     try {
-        await db.query(
-            'UPDATE goals SET done = $1 WHERE id = $2 AND user_id = $3',
-            [done ? 1 : 0, id, userId]
-        );
         // Check if the goal is being marked as done
         if (done === 1) {
             const textResult = await db.query('SELECT text FROM goals WHERE id = $1 AND user_id = $2', [id, userId]);
@@ -69,6 +65,11 @@ router.put('/:id', async (req, res) => {
                 await logActivity(userId, 'Completed goal', `Goal: ${textResult.rows[0].text}`);
             }
         }
+
+        await db.query(
+            'UPDATE goals SET done = $1 WHERE id = $2 AND user_id = $3',
+            [done ? 1 : 0, id, userId]
+        );
         res.json({ message: 'Goal updated' });
     } catch (err) {
         console.error('Goals PUT error:', err);
@@ -86,7 +87,14 @@ router.delete('/:id', async (req, res) => {
     }
 
     try {
+        const textResult = await db.query('SELECT text FROM goals WHERE id = $1 AND user_id = $2', [id, userId]);
+        
         await db.query('DELETE FROM goals WHERE id = $1 AND user_id = $2', [id, userId]);
+        
+        if (textResult.rows.length) {
+            await logActivity(userId, 'Deleted goal', `Goal: ${textResult.rows[0].text}`);
+        }
+        
         res.json({ message: 'Goal deleted' });
     } catch (err) {
         console.error('Goals DELETE error:', err);
