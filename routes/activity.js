@@ -38,4 +38,19 @@ async function logActivity(userId, action, details = null) {
     }
 }
 
+// TEST ENDPOINT – manually log an activity
+router.post('/test', async (req, res) => {
+    const { userId, action, details } = req.body;
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID required' });
+    }
+    try {
+        await logActivity(userId, action || 'Test action', details || 'Test details');
+        res.json({ message: 'Test activity logged' });
+    } catch (err) {
+        console.error('Test activity error:', err);
+        res.status(500).json({ error: 'Failed to log test activity' });
+    }
+});
+
 module.exports = { router, logActivity };
