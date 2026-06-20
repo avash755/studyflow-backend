@@ -1,6 +1,5 @@
 const express = require('express');
 const db = require('../db');
-const { logActivity } = require('./activity');
 const router = express.Router();
 
 // GET all events for a user
@@ -36,8 +35,6 @@ router.post('/', async (req, res) => {
             [userId, title, dateKey, time || null, color || '#4f46e5']
         );
 
-        await logActivity(userId, 'Added event', `Event: ${title}`);
-
         res.status(201).json({
             id: result.rows[0].id,
             title,
@@ -61,17 +58,10 @@ router.delete('/:id', async (req, res) => {
     }
 
     try {
-        const titleResult = await db.query('SELECT title FROM calendar_events WHERE id = $1 AND user_id = $2', [id, userId]);
-        
         await db.query(
             'DELETE FROM calendar_events WHERE id = $1 AND user_id = $2',
             [id, userId]
         );
-
-        if (titleResult.rows.length) {
-            await logActivity(userId, 'Deleted event', `Event: ${titleResult.rows[0].title}`);
-        }
-        
         res.json({ message: 'Event deleted' });
     } catch (err) {
         console.error('Calendar DELETE error:', err);

@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../db');
 const router = express.Router();
 
-// ---------- GET user stats ----------
+// GET user stats
 router.get('/', async (req, res) => {
     try {
         const userId = req.query.userId;
@@ -16,7 +16,6 @@ router.get('/', async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            // Stats not initialized yet – return defaults
             return res.json({
                 xp: 0,
                 level: 1,
@@ -35,7 +34,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// ---------- INITIALIZE stats for a new user ----------
+// INITIALIZE stats for a new user
 router.post('/init', async (req, res) => {
     const { userId } = req.body;
     if (!userId) {
@@ -43,7 +42,6 @@ router.post('/init', async (req, res) => {
     }
 
     try {
-        // Check if already exists
         const existing = await db.query(
             'SELECT user_id FROM user_stats WHERE user_id = $1',
             [userId]
@@ -53,7 +51,6 @@ router.post('/init', async (req, res) => {
             return res.json({ message: 'Stats already initialized' });
         }
 
-        // Insert default stats
         await db.query(
             `INSERT INTO user_stats 
              (user_id, xp, level, badges, total_focus_seconds, total_sessions, streak, last_active_date)
@@ -68,14 +65,15 @@ router.post('/init', async (req, res) => {
     }
 });
 
-// ---------- UPDATE stats (add XP, increment sessions, etc.) ----------
+// UPDATE stats
 router.put('/', async (req, res) => {
     const {
         userId,
-        xpToAdd,           // XP to add (e.g., +5, +10)
-        sessionTime,       // seconds to add to total focus time
-        sessionIncrement,  // boolean: increment total sessions by 1?
-        streakUpdate       // boolean: update streak based on daily activity?
+        xpToAdd,
+        sessionTime,
+        sessionIncrement,
+        streakUpdate,
+        badges
     } = req.body;
 
     if (!userId) {
@@ -83,7 +81,6 @@ router.put('/', async (req, res) => {
     }
 
     try {
-        // 1. Get current stats
         const currentResult = await db.query(
             'SELECT * FROM user_stats WHERE user_id = $1',
             [userId]
@@ -91,7 +88,6 @@ router.put('/', async (req, res) => {
 
         let current = currentResult.rows[0];
         if (!current) {
-            // If no stats row, initialize first
             await db.query(
                 `INSERT INTO user_stats 
                  (user_id, xp, level, badges, total_focus_seconds, total_sessions, streak, last_active_date)
@@ -109,12 +105,8 @@ router.put('/', async (req, res) => {
         let newStreak = current.streak || 0;
         let newLastActive = current.last_active_date;
 
-        // 2. Apply updates
-
-        // --- Add XP and check level up ---
         if (xpToAdd) {
             newXp += xpToAdd;
-            // Level up: 100 XP per level
             let needed = newLevel * 100;
             while (newXp >= needed) {
                 newXp -= needed;
@@ -123,17 +115,14 @@ router.put('/', async (req, res) => {
             }
         }
 
-        // --- Add Focus Time ---
         if (sessionTime) {
             newFocusSecs += sessionTime;
         }
 
-        // --- Increment Sessions ---
         if (sessionIncrement) {
             newSessions += 1;
         }
 
-        // --- Update Streak ---
         if (streakUpdate !== undefined) {
             const today = new Date().toDateString();
             if (newLastActive) {
@@ -145,25 +134,18 @@ router.put('/', async (req, res) => {
                 } else if (lastActiveDate === yesterday) {
                     newStreak += 1;
                 } else {
-                    newStreak = 1; // Reset streak
+                    newStreak = 1;
                 }
             } else {
-                newStreak = 1; // First activity
+                newStreak = 1;
             }
             newLastActive = new Date().toISOString();
         }
 
-        // --- Update Badges (award new badges based on achievements) ---
-        // We'll compute these on the frontend and send the full list.
-        // But we can also compute some here. For simplicity, let's expect the frontend
-        // to send the updated badge list when it changes.
-        // We'll accept a 'badges' array in the request body.
-
-        if (req.body.badges) {
-            newBadges = req.body.badges;
+        if (badges) {
+            newBadges = badges;
         }
 
-        // 3. Save back to database
         await db.query(
             `UPDATE user_stats SET 
                 xp = $1, 
@@ -186,7 +168,6 @@ router.put('/', async (req, res) => {
             ]
         );
 
-        // Return updated stats
         res.json({
             xp: newXp,
             level: newLevel,
@@ -196,7 +177,6 @@ router.put('/', async (req, res) => {
             streak: newStreak,
             last_active_date: newLastActive
         });
-
     } catch (err) {
         console.error('Stats PUT error:', err);
         res.status(500).json({ error: 'Internal server error' });

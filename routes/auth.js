@@ -3,7 +3,6 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const crypto = require('crypto');
-const { logActivity } = require('./activity'); // ✅ Activity logging
 
 const router = express.Router();
 
@@ -30,9 +29,6 @@ router.post('/register', async (req, res) => {
             [name, email, passwordHash]
         );
         const userId = result.rows[0].id;
-
-        // ✅ Log signup
-        await logActivity(userId, 'Signed up', `User: ${email}`);
 
         const token = jwt.sign(
             { userId, email },
@@ -71,9 +67,6 @@ router.post('/login', async (req, res) => {
         if (!match) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
-
-        // ✅ Log login
-        await logActivity(user.id, 'Logged in', `User: ${email}`);
 
         const token = jwt.sign(
             { userId: user.id, email: user.email },
@@ -123,9 +116,8 @@ router.post('/forgot', async (req, res) => {
 
         res.json({
             message: 'If an account exists, a reset link has been sent.',
-            devLink: resetLink // for testing
+            devLink: resetLink
         });
-
     } catch (err) {
         console.error('Forgot password error:', err);
         res.status(500).json({ error: 'Internal server error' });
@@ -164,7 +156,6 @@ router.post('/reset', async (req, res) => {
         await db.query('DELETE FROM password_resets WHERE user_id = $1', [resetEntry.user_id]);
 
         res.json({ message: 'Password reset successful! You can now log in.' });
-
     } catch (err) {
         console.error('Reset password error:', err);
         res.status(500).json({ error: 'Internal server error' });
