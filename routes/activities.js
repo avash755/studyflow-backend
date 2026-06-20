@@ -54,4 +54,23 @@ router.put('/mark-all-read', async (req, res) => {
     }
 });
 
+// POST: manually log an activity (used by reminders)
+router.post('/', async (req, res) => {
+    const { userId, type, message, metadata } = req.body;
+    if (!userId || !type || !message) {
+        return res.status(400).json({ error: 'userId, type, and message required' });
+    }
+    try {
+        await db.query(
+            `INSERT INTO user_activities (user_id, type, message, metadata)
+             VALUES ($1, $2, $3, $4)`,
+            [userId, type, message, JSON.stringify(metadata || {})]
+        );
+        res.status(201).json({ message: 'Activity logged' });
+    } catch (err) {
+        console.error('Activity POST error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;
