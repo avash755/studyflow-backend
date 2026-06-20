@@ -1,6 +1,5 @@
 const express = require('express');
 const db = require('../db');
-const { logActivity } = require('./activity');
 const router = express.Router();
 
 // GET all subjects for a user
@@ -10,11 +9,7 @@ router.get('/', async (req, res) => {
         if (!userId) {
             return res.status(400).json({ error: 'User ID required' });
         }
-
-        const result = await db.query(
-            'SELECT * FROM subjects WHERE user_id = $1 ORDER BY id DESC',
-            [userId]
-        );
+        const result = await db.query('SELECT * FROM subjects WHERE user_id = $1 ORDER BY id DESC', [userId]);
         res.json(result.rows);
     } catch (err) {
         console.error('Subjects GET error:', err);
@@ -22,7 +17,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// POST a new subject (with activity logging)
+// POST a new subject (DIRECT LOG)
 router.post('/', async (req, res) => {
     const { userId, name } = req.body;
     if (!userId || !name) {
@@ -30,13 +25,19 @@ router.post('/', async (req, res) => {
     }
 
     try {
+        // Insert subject
         const result = await db.query(
             'INSERT INTO subjects (user_id, name) VALUES ($1, $2) RETURNING id',
             [userId, name]
         );
-        
-        await logActivity(userId, 'Added subject', `Subject: ${name}`);
-        
+
+        // ✅ DIRECT LOG – no import needed
+        await db.query(
+            'INSERT INTO activity_logs (user_id, action, details) VALUES ($1, $2, $3)',
+            [userId, 'Added subject', `Subject: ${name}`]
+        );
+        console.log(`📝 Logged: Added subject for user ${userId}`);
+
         res.status(201).json({ 
             id: result.rows[0].id, 
             name, 
@@ -48,22 +49,20 @@ router.post('/', async (req, res) => {
     }
 });
 
-// DELETE a subject
+// DELETE a subject (also log)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const { userId } = req.body;
-
     try {
         const subjectResult = await db.query('SELECT name FROM subjects WHERE id = $1 AND user_id = $2', [id, userId]);
         const subjectName = subjectResult.rows[0]?.name || 'Unknown';
-        
+        await db.query('DELETE FROM subjects WHERE id = $1 AND user_id = $2', [id, userId]);
+
+        // ✅ LOG deletion
         await db.query(
-            'DELETE FROM subjects WHERE id = $1 AND user_id = $2',
-            [id, userId]
+            'INSERT INTO activity_logs (user_id, action, details) VALUES ($1, $2, $3)',
+            [userId, 'Deleted subject', `Subject: ${subjectName}`]
         );
-        
-        await logActivity(userId, 'Deleted subject', `Subject: ${subjectName}`);
-        
         res.json({ message: 'Subject deleted' });
     } catch (err) {
         console.error('Subjects DELETE error:', err);
