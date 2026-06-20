@@ -194,6 +194,10 @@ router.post('/reset', async (req, res) => {
         }
         const userId = result.rows[0].user_id;
 
+        // Log account creation
+        const { logActivity } = require('../helpers/activity');
+        await logActivity(userId, 'account_created', 'Welcome to StudyFlow! 🎉', {});
+
         // 2. Hash new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -210,5 +214,12 @@ router.post('/reset', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+await logActivity(
+    userId,
+    'account_created',
+    'Welcome to StudyFlow! 🎉',
+    {}
+);
 
 module.exports = router;

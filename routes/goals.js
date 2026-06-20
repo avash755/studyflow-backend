@@ -60,6 +60,16 @@ router.put('/:id', async (req, res) => {
             [done ? 1 : 0, id, userId]
         );
         res.json({ message: 'Goal updated' });
+
+        // After db.query update
+        if (done) {
+            await logActivity(
+                userId,
+                'goal_completed',
+                `Completed goal: "${text}"`,
+                { goal_id: id }
+            );
+        }
     } catch (err) {
         console.error('Goals PUT error:', err);
         res.status(500).json({ error: 'Internal server error' });

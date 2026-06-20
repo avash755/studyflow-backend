@@ -34,6 +34,14 @@ router.post('/', async (req, res) => {
             [userId, name]
         );
 
+        // After db.query insert
+        await logActivity(
+            userId,
+            'subject_added',
+            `Added new subject: "${name}"`,
+            { subject_id: result.rows[0].id }
+        );
+        
         res.status(201).json({
             id: result.rows[0].id,
             name,

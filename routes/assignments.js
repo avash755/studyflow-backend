@@ -98,6 +98,19 @@ router.put('/:id', async (req, res) => {
 
         await db.query(sql, params);
         res.json({ message: 'Assignment updated' });
+
+        // ... inside the try block, after db.query update ...
+        const { logActivity } = require('../helpers/activity');
+            
+        // If completed is true, log it
+        if (completed) {
+            await logActivity(
+                userId,
+                'assignment_completed',
+                `Completed assignment: "${title}"`,
+                { assignment_id: id }
+            );
+        }
     } catch (err) {
         console.error('Assignments PUT error:', err);
         res.status(500).json({ error: 'Internal server error' });

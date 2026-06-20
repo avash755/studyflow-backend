@@ -1,4 +1,8 @@
-require('dotenv').config();
+try {
+    require('dotenv').config();
+} catch (err) {
+    console.log('⚠️ dotenv not found, using environment variables directly');
+}
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');

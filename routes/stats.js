@@ -1,8 +1,9 @@
 const express = require('express');
 const db = require('../db');
+const { logActivity } = require('../helpers/activity'); // <-- REQUIRED
 const router = express.Router();
 
-// GET user stats
+// ---------- GET user stats ----------
 router.get('/', async (req, res) => {
     try {
         const userId = req.query.userId;
@@ -34,7 +35,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// INITIALIZE stats for a new user
+// ---------- INITIALIZE stats ----------
 router.post('/init', async (req, res) => {
     const { userId } = req.body;
     if (!userId) {
@@ -58,6 +59,9 @@ router.post('/init', async (req, res) => {
             [userId]
         );
 
+        // Log the account creation (if not already logged elsewhere)
+        await logActivity(userId, 'account_created', 'Welcome to StudyFlow! 🎉', {});
+
         res.json({ message: 'Stats initialized successfully' });
     } catch (err) {
         console.error('Stats INIT error:', err);
@@ -65,7 +69,7 @@ router.post('/init', async (req, res) => {
     }
 });
 
-// UPDATE stats
+// ---------- UPDATE stats ----------
 router.put('/', async (req, res) => {
     const {
         userId,
@@ -81,6 +85,7 @@ router.put('/', async (req, res) => {
     }
 
     try {
+        // Get current stats
         const currentResult = await db.query(
             'SELECT * FROM user_stats WHERE user_id = $1',
             [userId]
@@ -105,6 +110,7 @@ router.put('/', async (req, res) => {
         let newStreak = current.streak || 0;
         let newLastActive = current.last_active_date;
 
+        // --- Add XP and level up ---
         if (xpToAdd) {
             newXp += xpToAdd;
             let needed = newLevel * 100;
@@ -113,24 +119,38 @@ router.put('/', async (req, res) => {
                 newLevel++;
                 needed = newLevel * 100;
             }
+            // Log XP earned
+            await logActivity(userId, 'xp_earned', `Earned ${xpToAdd} XP!`, { xp: xpToAdd });
         }
 
+        // --- Add Focus Time ---
         if (sessionTime) {
             newFocusSecs += sessionTime;
+            // Log study session if sessionIncrement is true
+            if (sessionIncrement) {
+                await logActivity(
+                    userId,
+                    'study_session_complete',
+                    `Finished a study session (${Math.floor(sessionTime/60)} min)`,
+                    { duration_seconds: sessionTime }
+                );
+            }
         }
 
+        // --- Increment Sessions ---
         if (sessionIncrement) {
             newSessions += 1;
         }
 
-        if (streakUpdate !== undefined) {
+        // --- Update Streak ---
+        if (streakUpdate) {
             const today = new Date().toDateString();
             if (newLastActive) {
                 const lastActiveDate = new Date(newLastActive).toDateString();
                 const yesterday = new Date(Date.now() - 86400000).toDateString();
 
                 if (lastActiveDate === today) {
-                    // Already active today – do nothing
+                    // already active today
                 } else if (lastActiveDate === yesterday) {
                     newStreak += 1;
                 } else {
@@ -142,10 +162,12 @@ router.put('/', async (req, res) => {
             newLastActive = new Date().toISOString();
         }
 
+        // --- Update Badges ---
         if (badges) {
             newBadges = badges;
         }
 
+        // Save to database
         await db.query(
             `UPDATE user_stats SET 
                 xp = $1, 
@@ -177,6 +199,7 @@ router.put('/', async (req, res) => {
             streak: newStreak,
             last_active_date: newLastActive
         });
+
     } catch (err) {
         console.error('Stats PUT error:', err);
         res.status(500).json({ error: 'Internal server error' });
