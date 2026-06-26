@@ -10,6 +10,8 @@ const scheduleRoutes = require('./routes/schedule');
 const statsRoutes = require('./routes/stats');
 const activityRoutes = require('./routes/activities');
 const reminderRoutes = require('./routes/reminders');
+const noteRoutes = require('./routes/notes');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +28,9 @@ app.use('/api/schedule', scheduleRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/reminders', reminderRoutes);
+app.use('/api/notes', noteRoutes);
+app.use('/uploads', express.static('uploads'));
+app.use('/api/upload', uploadRoutes);
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'StudyFlow backend is alive' });
