@@ -7,7 +7,9 @@ function getDefaultSchedule(userId) {
     return [
         { user_id: userId, subject: 'Morning Workout', day: 0, start_time: '06:00', end_time: '07:00', location: 'Gym', color_class: 'color-red', description: 'Cardio', has_timer: false },
         { user_id: userId, subject: 'Study: CS', day: 0, start_time: '09:00', end_time: '11:00', location: 'Library', color_class: 'color-blue', description: '', has_timer: true },
-        // ... other defaults
+        { user_id: userId, subject: 'Team Meeting', day: 0, start_time: '14:00', end_time: '15:00', location: 'Conf Room', color_class: 'color-yellow', description: 'Weekly sync', has_timer: false },
+        { user_id: userId, subject: 'Study: Math', day: 1, start_time: '10:00', end_time: '12:00', location: 'Library', color_class: 'color-green', description: '', has_timer: true },
+        { user_id: userId, subject: 'Gym', day: 2, start_time: '07:00', end_time: '08:00', location: 'Gym', color_class: 'color-default', description: '', has_timer: false },
     ];
 }
 
@@ -76,7 +78,7 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// ---- NEW: Complete a timed task ----
+// ---- Complete a timed task ----
 router.post('/:id/complete', async (req, res) => {
     const { id } = req.params;
     const { userId, durationSeconds } = req.body;
@@ -85,7 +87,6 @@ router.post('/:id/complete', async (req, res) => {
         return res.status(400).json({ error: 'Valid durationSeconds required' });
     }
     try {
-        // Update the schedule item with completion date and duration
         const today = new Date().toISOString().split('T')[0];
         const result = await db.query(
             `UPDATE schedule_classes 
@@ -95,7 +96,6 @@ router.post('/:id/complete', async (req, res) => {
             [today, durationSeconds, id, userId]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Event not found' });
-        // Log activity
         await logActivity(userId, 'timed_task_completed', `Completed "${result.rows[0].subject}" in ${Math.floor(durationSeconds/60)} min`, { schedule_id: id, duration: durationSeconds });
         res.json({ message: 'Task completed', event: result.rows[0] });
     } catch (err) {
@@ -128,7 +128,7 @@ router.post('/reset', async (req, res) => {
                 `INSERT INTO schedule_classes 
                 (user_id, subject, day, start_time, end_time, location, color_class, description, has_timer)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [ev.user_id, ev.subject, ev.day, ev.start_time, ev.end_time, ev.location, ev.color_class, ev.description, ev.has_timer || false]
+                [ev.user_id, ev.subject, ev.day, ev.start_time, ev.end_time, ev.location, ev.color_class, ev.description, ev.has_timer]
             );
         }
         res.json({ message: 'Schedule reset to default' });
