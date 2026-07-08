@@ -67,9 +67,20 @@ router.put('/', async (req, res) => {
             current = { xp: 0, level: 1, badges: '[]', total_focus_seconds: 0, total_sessions: 0, streak: 0, last_active_date: null };
         }
 
-        let newXp = current.xp;
-        let newLevel = current.level;
-        let newBadges = JSON.parse(current.badges || '[]');
+        // SAFELY parse badges – this fixes the "Unexpected end of JSON input" error
+        let currentBadges = [];
+        try {
+            currentBadges = JSON.parse(current.badges || '[]');
+        } catch (e) {
+            console.warn('⚠️ Invalid badges JSON, resetting to empty array');
+            currentBadges = [];
+            // Fix it in the database
+            await db.query('UPDATE user_stats SET badges = $1 WHERE user_id = $2', ['[]', userId]);
+        }
+
+        let newXp = current.xp || 0;
+        let newLevel = current.level || 1;
+        let newBadges = currentBadges;
         let newFocusSecs = current.total_focus_seconds || 0;
         let newSessions = current.total_sessions || 0;
         let newStreak = current.streak || 0;
@@ -107,7 +118,7 @@ router.put('/', async (req, res) => {
                 const lastActiveDate = new Date(newLastActive).toDateString();
                 const yesterday = new Date(Date.now() - 86400000).toDateString();
                 if (lastActiveDate === today) {
-                    // already active today – do nothing
+                    // already active today
                 } else if (lastActiveDate === yesterday) {
                     newStreak += 1;
                 } else {
@@ -119,7 +130,7 @@ router.put('/', async (req, res) => {
             newLastActive = new Date().toISOString();
         }
 
-        // Badges
+        // Badges (if provided)
         if (badges) {
             newBadges = badges;
         }
@@ -138,7 +149,6 @@ router.put('/', async (req, res) => {
             [newXp, newLevel, JSON.stringify(newBadges), newFocusSecs, newSessions, newStreak, newLastActive, userId]
         );
 
-        // Return updated stats
         res.json({
             xp: newXp,
             level: newLevel,
@@ -151,7 +161,6 @@ router.put('/', async (req, res) => {
 
     } catch (err) {
         console.error('❌ Stats PUT error:', err);
-        // Send valid JSON error
         res.status(500).json({ error: 'Internal server error: ' + err.message });
     }
 });
