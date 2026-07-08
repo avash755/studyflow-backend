@@ -3,7 +3,7 @@ const db = require('../db');
 const { logActivity } = require('../helpers/activity');
 const router = express.Router();
 
-// GET stats
+// ---------- GET stats ----------
 router.get('/', async (req, res) => {
     try {
         const userId = req.query.userId;
@@ -11,7 +11,6 @@ router.get('/', async (req, res) => {
 
         const result = await db.query('SELECT * FROM user_stats WHERE user_id = $1', [userId]);
         if (result.rows.length === 0) {
-            // Return default stats
             return res.json({
                 xp: 0,
                 level: 1,
@@ -29,7 +28,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// INIT stats
+// ---------- INIT stats ----------
 router.post('/init', async (req, res) => {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID required' });
@@ -50,13 +49,13 @@ router.post('/init', async (req, res) => {
     }
 });
 
-// UPDATE stats (PUT) – fully fixed
+// ---------- UPDATE stats ----------
 router.put('/', async (req, res) => {
     try {
         const { userId, xpToAdd, sessionTime, sessionIncrement, streakUpdate, badges } = req.body;
         if (!userId) return res.status(400).json({ error: 'User ID required' });
 
-        // Ensure stats row exists
+        // Get or create stats row
         let currentResult = await db.query('SELECT * FROM user_stats WHERE user_id = $1', [userId]);
         let current = currentResult.rows[0];
         if (!current) {
@@ -125,7 +124,7 @@ router.put('/', async (req, res) => {
             newBadges = badges;
         }
 
-        // Save back
+        // Save to database
         await db.query(
             `UPDATE user_stats SET 
                 xp = $1, 
@@ -152,7 +151,7 @@ router.put('/', async (req, res) => {
 
     } catch (err) {
         console.error('❌ Stats PUT error:', err);
-        // Send a proper JSON error (not HTML)
+        // Send valid JSON error
         res.status(500).json({ error: 'Internal server error: ' + err.message });
     }
 });
