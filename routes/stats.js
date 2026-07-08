@@ -3,24 +3,33 @@ const db = require('../db');
 const { logActivity } = require('../helpers/activity');
 const router = express.Router();
 
-// GET user stats
+// GET stats
 router.get('/', async (req, res) => {
     try {
         const userId = req.query.userId;
         if (!userId) return res.status(400).json({ error: 'User ID required' });
+
         const result = await db.query('SELECT * FROM user_stats WHERE user_id = $1', [userId]);
         if (result.rows.length === 0) {
-            // Return default stats if not initialized
-            return res.json({ xp: 0, level: 1, badges: '[]', total_focus_seconds: 0, total_sessions: 0, streak: 0, last_active_date: null });
+            // Return default stats
+            return res.json({
+                xp: 0,
+                level: 1,
+                badges: '[]',
+                total_focus_seconds: 0,
+                total_sessions: 0,
+                streak: 0,
+                last_active_date: null
+            });
         }
         res.json(result.rows[0]);
     } catch (err) {
         console.error('❌ Stats GET error:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to fetch stats' });
     }
 });
 
-// INIT stats (POST)
+// INIT stats
 router.post('/init', async (req, res) => {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID required' });
@@ -34,20 +43,20 @@ router.post('/init', async (req, res) => {
              VALUES ($1, 0, 1, '[]', 0, 0, 0, NULL)`,
             [userId]
         );
-        res.json({ message: 'Stats initialized successfully' });
+        res.json({ message: 'Stats initialized' });
     } catch (err) {
         console.error('❌ Stats INIT error:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to initialize stats' });
     }
 });
 
-// UPDATE stats (PUT)
+// UPDATE stats (PUT) – fully fixed
 router.put('/', async (req, res) => {
     try {
         const { userId, xpToAdd, sessionTime, sessionIncrement, streakUpdate, badges } = req.body;
         if (!userId) return res.status(400).json({ error: 'User ID required' });
 
-        // Get current stats, or create row if missing
+        // Ensure stats row exists
         let currentResult = await db.query('SELECT * FROM user_stats WHERE user_id = $1', [userId]);
         let current = currentResult.rows[0];
         if (!current) {
@@ -67,7 +76,7 @@ router.put('/', async (req, res) => {
         let newStreak = current.streak || 0;
         let newLastActive = current.last_active_date;
 
-        // Add XP and level up
+        // Apply XP
         if (xpToAdd) {
             newXp += xpToAdd;
             let needed = newLevel * 100;
@@ -76,11 +85,10 @@ router.put('/', async (req, res) => {
                 newLevel++;
                 needed = newLevel * 100;
             }
-            // Log XP gain
             await logActivity(userId, 'xp_earned', `Earned ${xpToAdd} XP!`, { xp: xpToAdd });
         }
 
-        // Add focus time
+        // Focus time
         if (sessionTime) {
             newFocusSecs += sessionTime;
             if (sessionIncrement) {
@@ -88,12 +96,12 @@ router.put('/', async (req, res) => {
             }
         }
 
-        // Increment sessions
+        // Sessions
         if (sessionIncrement) {
             newSessions += 1;
         }
 
-        // Update streak
+        // Streak
         if (streakUpdate) {
             const today = new Date().toDateString();
             if (newLastActive) {
@@ -112,12 +120,12 @@ router.put('/', async (req, res) => {
             newLastActive = new Date().toISOString();
         }
 
-        // Update badges (if provided)
+        // Badges
         if (badges) {
             newBadges = badges;
         }
 
-        // Save back to database
+        // Save back
         await db.query(
             `UPDATE user_stats SET 
                 xp = $1, 
@@ -144,6 +152,7 @@ router.put('/', async (req, res) => {
 
     } catch (err) {
         console.error('❌ Stats PUT error:', err);
+        // Send a proper JSON error (not HTML)
         res.status(500).json({ error: 'Internal server error: ' + err.message });
     }
 });
